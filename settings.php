@@ -54,11 +54,11 @@ if ($hassiteconfig) {
       'Destination Database Connection',
       $link
     ));
-    $drivers = \local_zappee\helper::get_drivers();
+    $drivers = \local_tablesync\util::get_drivers();
     $settings->add(new admin_setting_configselect(
       'local_tablesync/dbdriver',
       'Database Driver',
-      '(Not all drivers have been tested)',
+      '(Use “Table Sync Optimized MySQL/MariaDB” when possible. Not all drivers have been tested.)',
       '',
       $drivers
     ));
@@ -80,7 +80,7 @@ if ($hassiteconfig) {
       '',
       ''
     ));
-    $settings->add(new admin_setting_configtext(
+    $settings->add(new admin_setting_configpasswordunmask(
       'local_tablesync/dbpassword',
       'Database Password',
       '',

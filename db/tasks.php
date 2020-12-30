@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * This plugin syncs Moodle tables to an external database.
+ * Definition of local_tablesync tasks.
  *
  * @package    local_tablesync
  * @copyright  2021 Zappee
@@ -25,6 +25,14 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version = 2020122901; // The current plugin version (Date: YYYYMMDDXX).
-$plugin->requires = 2020061500; // Requires this Moodle version.
-$plugin->component = 'local_tablesync'; // Full name of the plugin (used for diagnostics).
+$tasks = [
+    [
+        'classname' => 'local_tablesync\task\sync_tables',
+        'blocking' => 0,
+        'minute' => '0',
+        'hour' => '2',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '*',
+    ]
+];

@@ -37,15 +37,8 @@ echo $OUTPUT->heading('Test Destination DB Connection');
 raise_memory_limit(MEMORY_HUGE);
 $dbname = get_config('local_tablesync', 'dbname');
 if (empty($dbname)) {
-  echo $OUTPUT->notification('Destination database name not specified.', 'notifyproblem');
-  die();
-}
-
-$dbdriver = get_config('local_tablesync', 'dbdriver');
-list($dblibrary, $dbtype) = explode('/', $dbdriver);
-if (!$db = \moodle_database::get_driver_instance($dbtype, $dblibrary, true)) {
-  echo $OUTPUT->notification("Unknown driver $dblibrary/$dbtype", "notifyproblem");
-  die();
+    echo $OUTPUT->notification('Destination database name not specified.', 'notifyproblem');
+    die();
 }
 
 $olddebug = $CFG->debug;
@@ -54,48 +47,34 @@ ini_set('display_errors', '1');
 $CFG->debug = DEBUG_DEVELOPER;
 error_reporting($CFG->debug);
 
-$dboptions = array();
-$dboptions['dbport'] = get_config('local_tablesync', 'dbport');
-
-try {
-  $db->connect(
-    get_config('local_tablesync', 'dbhost'),
-    get_config('local_tablesync', 'dbuser'),
-    get_config('local_tablesync', 'dbpassword'),
-    get_config('local_tablesync', 'dbname'),
-    false,
-    $dboptions
-  );
-} catch (\moodle_exception $e) {
-  echo $OUTPUT->notification('Cannot connect to the database.', 'notifyproblem');
-  $CFG->debug = $olddebug;
-  ini_set('display_errors', $olddisplay);
-  error_reporting($CFG->debug);
-  ob_end_flush();
-  echo $OUTPUT->footer();
-  die();
-}
-
+// Get database connection (will die here if connection fails)
+$db = \local_tablesync\util::get_destination_db();
 echo $OUTPUT->notification('Connection made.', 'notifysuccess');
-$tables = $db->get_tables();
-if (empty($cols)) {
-  echo $OUTPUT->notification('Can not read external tables.', 'notifyproblem');
-} else {
-  $tables = array_keys((array)$tables);
-  echo $OUTPUT->notification('Destination database contains following tables:<br />' . implode(', ', $tables), 'notifysuccess');
-}
-// TODO check for each table needed
-// if (!in_array($dbtable, $tables)) {
-//   echo $OUTPUT->notification('Cannot find the specified table ' . $dbtable, 'notifyproblem');
-//   $CFG->debug = $olddebug;
-//   ini_set('display_errors', $olddisplay);
-//   error_reporting($CFG->debug);
-//   ob_end_flush();
-//   echo $OUTPUT->footer();
-//   die();
-// }
-// echo $OUTPUT->notification('Table ' . $dbtable . ' found.', 'notifysuccess');
 
+// List all tables in database
+$tables = $db->get_tables();
+if (empty($tables)) {
+    echo $OUTPUT->notification('Can not read tables from destination database. Ensure that the database user has permission to list tables.', 'notifyproblem');
+} else {
+    $tables = array_keys((array)$tables);
+    echo 'Destination database contains following tables:<br />' . implode('<br /> ', $tables) . '<hr />';
+}
+
+// Check for each table needed
+$timemodifiedtables = explode(',', get_config('local_tablesync', 'timemodifiedtables'));
+$historytables = explode(',', get_config('local_tablesync', 'historytables'));
+$customprefix = get_config('local_tablesync', 'tableprefix');
+
+$sourcetables = array_merge($timemodifiedtables, $historytables);
+
+foreach ($sourcetables as $sourcetable) {
+    $destname = $customprefix . $CFG->prefix . trim($sourcetable);
+    if (in_array($destname, $tables)) {
+        echo $OUTPUT->notification('Table ' . $sourcetable . ' will be synced to ' . $destname, 'notifysuccess');
+    } else {
+        echo $OUTPUT->notification('Cannot find destination table ' . $destname . ' to sync ' . $sourcetable, 'notifyproblem');
+    }
+}
 
 $db->dispose();
 
