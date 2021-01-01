@@ -46,7 +46,7 @@ if ($hassiteconfig) {
     // Database connection settings
     $link = html_writer::link(
       $testurl,
-      'Test Destination DB Connection',
+      'Test Destination Database Connection',
       array('target' => '_blank')
     );
     $settings->add(new admin_setting_heading(
@@ -58,7 +58,7 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_configselect(
       'local_tablesync/dbdriver',
       'Database Driver',
-      '(Use “Table Sync Optimized MySQL/MariaDB” when possible. Not all drivers have been tested.)',
+      '(Use “Table Sync Optimized MySQL/MariaDB” when possible. Other drivers have not been tested.)',
       '',
       $drivers
     ));
@@ -98,13 +98,6 @@ if ($hassiteconfig) {
       'Prepended before the mdl_ prefix',
       ''
     ));
-    $settings->add(new admin_setting_configtext(
-      'local_tablesync/buffersize',
-      'Buffer Size ',
-      'Number of log entries inserted in one batch database operation, which improves performance.',
-      50,
-      PARAM_INT
-    ));
 
     // Tables to sync
     $settings->add(new admin_setting_heading(
@@ -117,6 +110,13 @@ if ($hassiteconfig) {
       'timemodified Tables to Sync',
       'Any rows in these tables with timemodified later than the last sync will be inserted or updated.',
       ''
+    ));
+    $settings->add(new admin_setting_configselect(
+      'local_tablesync/syncdeletions',
+      'Sync Deletions in timemodified Tables',
+      'This is one-way, and only for timemodified tables: rows deleted in the source table will be deleted in the destination table. Not recommended for very large tables.',
+      'yes',
+      ['yes' => 'Yes', 'no' => 'No']
     ));
     $settings->add(new admin_setting_configtext(
       'local_tablesync/historytables',

@@ -47,6 +47,18 @@ class util
   }
 
   /**
+   * Returns the computed destination table name, which includes
+   * the custom prefix and Moodle-configured prefix.
+   * @return string
+   */
+  public static function get_destination_table_name($sourcetable)
+  {
+    global $CFG;
+    $customprefix = get_config('local_tablesync', 'tableprefix');
+    return $customprefix . $CFG->prefix . trim($sourcetable);
+  }
+
+  /**
    * Returns a connection to the destination database.
    * @return moodle_database driver object or null if error
    */

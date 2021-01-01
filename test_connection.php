@@ -15,13 +15,15 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Page that tests the destination database connection.
+ * Page that tests the destination database connection and checks for tables.
  *
  * @package    local_tablesync
  * @copyright  2021 Zappee
  * @website    https://www.zappee.ai/
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+use local_tablesync\util;
 
 require(__DIR__ . '/../../config.php');
 require_once($CFG->dirroot . '/lib/adminlib.php');
@@ -48,7 +50,7 @@ $CFG->debug = DEBUG_DEVELOPER;
 error_reporting($CFG->debug);
 
 // Get database connection (will die here if connection fails)
-$db = \local_tablesync\util::get_destination_db();
+$db = util::get_destination_db();
 echo $OUTPUT->notification('Connection made.', 'notifysuccess');
 
 // List all tables in database
@@ -57,18 +59,16 @@ if (empty($tables)) {
     echo $OUTPUT->notification('Can not read tables from destination database. Ensure that the database user has permission to list tables.', 'notifyproblem');
 } else {
     $tables = array_keys((array)$tables);
-    echo 'Destination database contains following tables:<br />' . implode('<br /> ', $tables) . '<hr />';
+    echo 'Destination database contains the following tables. Please ensure their schemas are identical to the tables in Moodle.<br />' . implode('<br /> ', $tables) . '<hr />';
 }
 
 // Check for each table needed
 $timemodifiedtables = explode(',', get_config('local_tablesync', 'timemodifiedtables'));
 $historytables = explode(',', get_config('local_tablesync', 'historytables'));
-$customprefix = get_config('local_tablesync', 'tableprefix');
-
 $sourcetables = array_merge($timemodifiedtables, $historytables);
 
 foreach ($sourcetables as $sourcetable) {
-    $destname = $customprefix . $CFG->prefix . trim($sourcetable);
+    $destname = util::get_destination_table_name($sourcetable);
     if (in_array($destname, $tables)) {
         echo $OUTPUT->notification('Table ' . $sourcetable . ' will be synced to ' . $destname, 'notifysuccess');
     } else {
