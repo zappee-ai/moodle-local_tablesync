@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Language strings for Zappee tablesync plugin.
+ * Language strings for tablesync plugin.
  *
  * @package    local_tablesync
  * @copyright  2021 Zappee
@@ -23,5 +23,5 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['pluginname'] = 'Zappee Table Sync';
+$string['pluginname'] = 'Table Sync';
 $string['pluginname_desc'] = 'This plugin syncs Moodle tables to an external database.';

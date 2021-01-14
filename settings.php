@@ -38,7 +38,7 @@ if ($hassiteconfig) {
   );
   $ADMIN->add('localplugins', $test);
 
-  $settings = new admin_settingpage('local_tablesync', 'Zappee Table Sync Settings');
+  $settings = new admin_settingpage('local_tablesync', 'Table Sync Settings');
   $ADMIN->add('localplugins', $settings);
 
   if ($ADMIN->fulltree) {
