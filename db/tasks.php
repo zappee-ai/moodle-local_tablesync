@@ -29,8 +29,8 @@ $tasks = [
     [
         'classname' => 'local_tablesync\task\sync_tables',
         'blocking' => 0,
-        'minute' => '0',
-        'hour' => '2',
+        'minute' => '30',
+        'hour' => '1',
         'day' => '*',
         'month' => '*',
         'dayofweek' => '*',

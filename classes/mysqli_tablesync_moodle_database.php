@@ -98,7 +98,7 @@ class mysqli_tablesync_moodle_database extends mysqli_native_moodle_database
       if ($fields === null) {
         $fields = array_keys($dataobject);
         $columns = array_intersect_key($columns, $dataobject);
-      // Modified: no longer call unset($columns['id]])
+        // Modified: no longer call unset($columns['id]])
       } else if ($fields !== array_keys($dataobject)) {
         throw new coding_exception('All dataobjects in replace_records() must have the same structure!');
       }

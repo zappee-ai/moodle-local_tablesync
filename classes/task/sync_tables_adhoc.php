@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * This plugin syncs Moodle tables to an external database.
+ * Adhoc task to sync database tables.
  *
  * @package    local_tablesync
  * @copyright  2021 Zappee
@@ -23,8 +23,16 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+namespace local_tablesync\task;
+
+use local_tablesync\sync;
+
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version = 2021011301; // The current plugin version (Date: YYYYMMDDXX).
-$plugin->requires = 2020061500; // Requires this Moodle version.
-$plugin->component = 'local_tablesync'; // Full name of the plugin (used for diagnostics).
+class sync_tables_adhoc extends \core\task\adhoc_task
+{
+  public function execute()
+  {
+    sync::sync_tables();
+  }
+}
