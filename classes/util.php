@@ -30,7 +30,7 @@ defined('MOODLE_INTERNAL') || die();
 class util
 {
   /**
-   * Returns list of fully working database drivers present in system.
+   * Returns list of database drivers present in system.
    * @return array
    */
   public static function get_drivers()

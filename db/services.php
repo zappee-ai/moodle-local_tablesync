@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Define the function and web service to start an on-demand table sync task.
+ * Define the function to start an on-demand table sync task.
  *
  * @package    local_tablesync
  * @copyright  2021 Zappee
@@ -30,16 +30,5 @@ $functions = array(
     'classpath' => 'local/tablesync/externallib.php',
     'description' => 'Starts an on-demand table sync task.',
     'type' => 'read',
-  )
-);
-
-$services = array(
-  'Table Sync Service' => array(
-    'functions' => array('local_tablesync_start_sync'),
-    'restrictedusers' => 1,
-    'enabled' => 1,
-    'shortname' =>  'tablesync_start',
-    'downloadfiles' => 0,
-    'uploadfiles'  => 0,
   )
 );
