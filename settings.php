@@ -103,13 +103,7 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_heading(
       'tables',
       'Tables to Sync',
-      'Destination tables must have identical structure to source tables. Specify the source tables in comma-separated lists below, without the mdl_ prefix. Example: grade_items,grade_grades'
-    ));
-    $settings->add(new admin_setting_configtext(
-      'local_tablesync/timemodifiedtables',
-      'timemodified Tables to Sync',
-      'Any rows in these tables with timemodified later than the last sync will be inserted or updated.',
-      ''
+      'Destination tables must have identical structure to source tables. Timemodified tables to sync: grade_items,grade_grades. History tables to sync: grade_grades_history, grade_items_history'
     ));
     $settings->add(new admin_setting_configselect(
       'local_tablesync/syncdeletions',
@@ -117,12 +111,6 @@ if ($hassiteconfig) {
       'This is one-way, and only for timemodified tables: rows deleted in the source table will be deleted in the destination table. Not recommended for very large tables.',
       'yes',
       ['yes' => 'Yes', 'no' => 'No']
-    ));
-    $settings->add(new admin_setting_configtext(
-      'local_tablesync/historytables',
-      'history Tables to Sync ',
-      'Any rows in these tables with id greater than the last-copied id will be inserted.',
-      ''
     ));
   }
 }

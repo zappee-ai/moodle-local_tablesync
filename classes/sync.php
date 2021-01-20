@@ -141,14 +141,14 @@ class sync
     $actualdesttables = $destdb->get_tables();
 
     // Sync timemodified tables
-    $timemodifiedtables = explode(',', get_config('local_tablesync', 'timemodifiedtables'));
+    $timemodifiedtables = explode(',', 'grade_items,grade_grades');
     $syncdeletions = get_config('local_tablesync', 'syncdeletions') === 'yes';
     foreach ($timemodifiedtables as $sourcetable) {
       self::sync_table($destdb, $sourcetable, $actualdesttables, "timemodified", $syncdeletions);
     }
 
     // Sync history tables
-    $historytables = explode(',', get_config('local_tablesync', 'historytables'));
+    $historytables = explode(',', 'grade_grades_history,grade_items_history');
     foreach ($historytables as $sourcetable) {
       self::sync_table($destdb, $sourcetable, $actualdesttables, "history");
     }
