@@ -27,90 +27,90 @@ defined('MOODLE_INTERNAL') || die;
 
 if ($hassiteconfig) {
 
-  // Setup connection test page
-  $testurl = new moodle_url('/local/tablesync/test_connection.php', array('sesskey' => sesskey()));
-  $test = new admin_externalpage(
-    'local_tablesync_test_connection',
-    'Test Destination DB Connection',
-    $testurl,
-    'moodle/site:config',
-    true
-  );
-  $ADMIN->add('localplugins', $test);
-
-  $settings = new admin_settingpage('local_tablesync', 'Table Sync Settings');
-  $ADMIN->add('localplugins', $settings);
-
-  if ($ADMIN->fulltree) {
-
-    // Database connection settings
-    $link = html_writer::link(
-      $testurl,
-      'Test Destination Database Connection',
-      array('target' => '_blank')
+    // Setup connection test page
+    $testurl = new moodle_url('/local/tablesync/test_connection.php', array('sesskey' => sesskey()));
+    $test = new admin_externalpage(
+        'local_tablesync_test_connection',
+        'Test Destination DB Connection',
+        $testurl,
+        'moodle/site:config',
+        true
     );
-    $settings->add(new admin_setting_heading(
-      'dbsettings',
-      'Destination Database Connection',
-      $link
-    ));
-    $drivers = \local_tablesync\util::get_drivers();
-    $settings->add(new admin_setting_configselect(
-      'local_tablesync/dbdriver',
-      'Database Driver',
-      '(Use “Table Sync Optimized MySQL/MariaDB” when possible. Other drivers have not been tested.)',
-      '',
-      $drivers
-    ));
-    $settings->add(new admin_setting_configtext(
-      'local_tablesync/dbhost',
-      'Database Host',
-      '',
-      ''
-    ));
-    $settings->add(new admin_setting_configtext(
-      'local_tablesync/dbport',
-      'Database Port',
-      '',
-      ''
-    ));
-    $settings->add(new admin_setting_configtext(
-      'local_tablesync/dbuser',
-      'Database Username',
-      '',
-      ''
-    ));
-    $settings->add(new admin_setting_configpasswordunmask(
-      'local_tablesync/dbpassword',
-      'Database Password',
-      '',
-      ''
-    ));
-    $settings->add(new admin_setting_configtext(
-      'local_tablesync/dbname',
-      'Database Name',
-      '',
-      ''
-    ));
-    $settings->add(new admin_setting_configtext(
-      'local_tablesync/tableprefix',
-      'Destination Table Prefix',
-      'Prepended before the mdl_ prefix',
-      ''
-    ));
+    $ADMIN->add('localplugins', $test);
 
-    // Tables to sync
-    $settings->add(new admin_setting_heading(
-      'tables',
-      'Tables to Sync',
-      'Destination tables must have identical structure to source tables. Timemodified tables to sync: grade_items,grade_grades. History tables to sync: grade_grades_history, grade_items_history'
-    ));
-    $settings->add(new admin_setting_configselect(
-      'local_tablesync/syncdeletions',
-      'Sync Deletions in timemodified Tables',
-      'This is one-way, and only for timemodified tables: rows deleted in the source table will be deleted in the destination table. Not recommended for very large tables.',
-      'yes',
-      ['yes' => 'Yes', 'no' => 'No']
-    ));
-  }
+    $settings = new admin_settingpage('local_tablesync', 'Table Sync Settings');
+    $ADMIN->add('localplugins', $settings);
+
+    if ($ADMIN->fulltree) {
+
+        // Database connection settings
+        $link = html_writer::link(
+            $testurl,
+            'Test Destination Database Connection',
+            array('target' => '_blank')
+        );
+        $settings->add(new admin_setting_heading(
+            'dbsettings',
+            'Destination Database Connection',
+            $link
+        ));
+        $drivers = \local_tablesync\util::get_drivers();
+        $settings->add(new admin_setting_configselect(
+            'local_tablesync/dbdriver',
+            'Database Driver',
+            '(Use “Table Sync Optimized MySQL/MariaDB” when possible. Other drivers have not been tested.)',
+            '',
+            $drivers
+        ));
+        $settings->add(new admin_setting_configtext(
+            'local_tablesync/dbhost',
+            'Database Host',
+            '',
+            ''
+        ));
+        $settings->add(new admin_setting_configtext(
+            'local_tablesync/dbport',
+            'Database Port',
+            '',
+            ''
+        ));
+        $settings->add(new admin_setting_configtext(
+            'local_tablesync/dbuser',
+            'Database Username',
+            '',
+            ''
+        ));
+        $settings->add(new admin_setting_configpasswordunmask(
+            'local_tablesync/dbpassword',
+            'Database Password',
+            '',
+            ''
+        ));
+        $settings->add(new admin_setting_configtext(
+            'local_tablesync/dbname',
+            'Database Name',
+            '',
+            ''
+        ));
+        $settings->add(new admin_setting_configtext(
+            'local_tablesync/tableprefix',
+            'Destination Table Prefix',
+            'Prepended before the mdl_ prefix',
+            ''
+        ));
+
+        // Tables to sync
+        $settings->add(new admin_setting_heading(
+            'tables',
+            'Tables to Sync',
+            'Destination tables must have identical structure to source tables. Timemodified tables to sync: grade_items,grade_grades. History tables to sync: grade_grades_history, grade_items_history'
+        ));
+        $settings->add(new admin_setting_configselect(
+            'local_tablesync/syncdeletions',
+            'Sync Deletions in timemodified Tables',
+            'This is one-way, and only for timemodified tables: rows deleted in the source table will be deleted in the destination table. Not recommended for very large tables.',
+            'yes',
+            ['yes' => 'Yes', 'no' => 'No']
+        ));
+    }
 }

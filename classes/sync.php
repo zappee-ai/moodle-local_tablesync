@@ -30,131 +30,127 @@ use local_tablesync\util;
 
 defined('MOODLE_INTERNAL') || die();
 
-class sync
-{
-  /**
-   * Replace records into a destination table.
-   * @return void
-   */
-  private static function replace_records($destdb, $desttable, $recordset)
-  {
-    // Custom mysqli subclass has replace_records method for better performance
-    if ($destdb instanceof mysqli_tablesync_moodle_database) {
-      $destdb->replace_records($desttable, $recordset);
-    } else {
-      // For other drivers, use less-performant inserts
-      foreach ($recordset as $record) {
-        $destdb->insert_record_raw($desttable, $record, false, true, true);
-      }
-    }
-    $recordset->close();
-  }
-
-  /**
-   * Sync a given source table to a destination table in destdb.
-   */
-  private static function sync_table($destdb, $sourcetable, $actualdesttables, $synctype, $syncdeletions = false)
-  {
-    global $DB;
-
-    $sourcetable = trim($sourcetable);
-
-    $desttable = util::get_destination_table_name($sourcetable);
-    echo '* ' . $sourcetable . ' -> ' . $desttable . "\n";
-
-    if (!in_array($desttable, $actualdesttables)) {
-      echo "\tCannot find destination table " . $desttable . " to sync " . $sourcetable . "; skipping.\n";
-      return;
+class sync {
+    /**
+     * Replace records into a destination table.
+     * @return void
+     */
+    private static function replace_records($destdb, $desttable, $recordset) {
+        // Custom mysqli subclass has replace_records method for better performance
+        if ($destdb instanceof mysqli_tablesync_moodle_database) {
+            $destdb->replace_records($desttable, $recordset);
+        } else {
+            // For other drivers, use less-performant inserts
+            foreach ($recordset as $record) {
+                $destdb->insert_record_raw($desttable, $record, false, true, true);
+            }
+        }
+        $recordset->close();
     }
 
-    $tablestarttime = microtime(true);
+    /**
+     * Sync a given source table to a destination table in destdb.
+     */
+    private static function sync_table($destdb, $sourcetable, $actualdesttables, $synctype, $syncdeletions = false) {
+        global $DB;
 
-    if ($synctype === "timemodified") {
-      // Get newest timemodified from destination table
-      $lastmodified = $destdb->get_field($desttable, "max(timemodified)", []);
-      if ($lastmodified === NULL) {
-        echo "\tSyncing all rows\n";
-        $lastmodified = 0;
-      } else {
-        echo "\tSyncing rows with timemodified >= $lastmodified\n";
-      }
+        $sourcetable = trim($sourcetable);
 
-      // Get modified rows from source table
-      $recordset = $DB->get_recordset_sql("SELECT * FROM {" . $sourcetable . "} where timemodified >= ?", [$lastmodified]);
-    } else if ($synctype == "history") {
-      // Get greatest id from destination table
-      $lastid = $destdb->get_field($desttable, "max(id)", []);
-      if ($lastid === NULL) {
-        echo "\tSyncing all rows\n";
-        $lastid = -1;
-      } else {
-        echo "\tSyncing rows with id > $lastid\n";
-      }
+        $desttable = util::get_destination_table_name($sourcetable);
+        echo '* ' . $sourcetable . ' -> ' . $desttable . "\n";
 
-      // Get modified rows from source table
-      $recordset = $DB->get_recordset_sql("SELECT * FROM {" . $sourcetable . "} where id > ?", [$lastid]);
-    } else {
-      echo "\tUnknown synctype $synctype; skipping.\n";
+        if (!in_array($desttable, $actualdesttables)) {
+            echo "\tCannot find destination table " . $desttable . " to sync " . $sourcetable . "; skipping.\n";
+            return;
+        }
+
+        $tablestarttime = microtime(true);
+
+        if ($synctype === "timemodified") {
+            // Get newest timemodified from destination table
+            $lastmodified = $destdb->get_field($desttable, "max(timemodified)", []);
+            if ($lastmodified === NULL) {
+                echo "\tSyncing all rows\n";
+                $lastmodified = 0;
+            } else {
+                echo "\tSyncing rows with timemodified >= $lastmodified\n";
+            }
+
+            // Get modified rows from source table
+            $recordset = $DB->get_recordset_sql("SELECT * FROM {" . $sourcetable . "} where timemodified >= ?", [$lastmodified]);
+        } else if ($synctype == "history") {
+            // Get greatest id from destination table
+            $lastid = $destdb->get_field($desttable, "max(id)", []);
+            if ($lastid === NULL) {
+                echo "\tSyncing all rows\n";
+                $lastid = -1;
+            } else {
+                echo "\tSyncing rows with id > $lastid\n";
+            }
+
+            // Get modified rows from source table
+            $recordset = $DB->get_recordset_sql("SELECT * FROM {" . $sourcetable . "} where id > ?", [$lastid]);
+        } else {
+            echo "\tUnknown synctype $synctype; skipping.\n";
+        }
+
+        // Sync modified rows
+        self::replace_records($destdb, $desttable, $recordset);
+
+        // Handle deletions for timemodified tables, if requested
+        // (Rows will never be deleted from destination history tables)
+        if ($synctype === "timemodified" && $syncdeletions) {
+            echo "\tSyncing deletions\n";
+
+            $sourceids = $DB->get_fieldset_select($sourcetable, "id", "");
+            $destids = $destdb->get_fieldset_select($desttable, "id", "");
+            echo "\tCounts before deletion syncing: source: " . count($sourceids) . ", dest: " . count($destids) . "\n";
+
+            // Delete from destination any rows present in destination but not in source
+            $deletedids = array_diff($destids, $sourceids);
+
+            if (count($deletedids) > 0) {
+                $deletedlist = implode(',', $deletedids);
+                $destdb->delete_records_select($desttable, "id in ($deletedlist)");
+
+                echo "\t" . count($deletedids) . " rows deleted from destination\n";
+                echo "\t" . implode(',', $deletedids) . "\n";
+            } else {
+                echo "\tNo rows to delete.\n";
+            }
+        }
+
+        echo "\tTook " . (microtime(true) - $tablestarttime) . " seconds\n";
     }
 
-    // Sync modified rows
-    self::replace_records($destdb, $desttable, $recordset);
+    /**
+     * Sync all the configured tables (both timemodified and history).
+     * This should be called from a scheduled or adhoc task.
+     */
+    public static function sync_tables() {
+        raise_memory_limit(MEMORY_HUGE);
+        mtrace("sync_tables started");
 
-    // Handle deletions for timemodified tables, if requested
-    // (Rows will never be deleted from destination history tables)
-    if ($synctype === "timemodified" && $syncdeletions) {
-      echo "\tSyncing deletions\n";
+        $destdb = util::get_destination_db();
 
-      $sourceids = $DB->get_fieldset_select($sourcetable, "id", "");
-      $destids = $destdb->get_fieldset_select($desttable, "id", "");
-      echo "\tCounts before deletion syncing: source: " . count($sourceids) . ", dest: " . count($destids) . "\n";
+        // Get tables in destination
+        $actualdesttables = $destdb->get_tables();
 
-      // Delete from destination any rows present in destination but not in source
-      $deletedids = array_diff($destids, $sourceids);
+        // Sync timemodified tables
+        $timemodifiedtables = util::get_timemodified_table_names();
+        $syncdeletions = get_config('local_tablesync', 'syncdeletions') === 'yes';
+        foreach ($timemodifiedtables as $sourcetable) {
+            self::sync_table($destdb, $sourcetable, $actualdesttables, "timemodified", $syncdeletions);
+        }
 
-      if (count($deletedids) > 0) {
-        $deletedlist = implode(',', $deletedids);
-        $destdb->delete_records_select($desttable, "id in ($deletedlist)");
+        // Sync history tables
+        $historytables = util::get_history_table_names();
+        foreach ($historytables as $sourcetable) {
+            self::sync_table($destdb, $sourcetable, $actualdesttables, "history");
+        }
 
-        echo "\t" . count($deletedids) . " rows deleted from destination\n";
-        echo "\t" . implode(',', $deletedids) . "\n";
-      } else {
-        echo "\tNo rows to delete.\n";
-      }
+        $destdb->dispose();
+
+        mtrace("sync_tables finished");
     }
-
-    echo "\tTook " . (microtime(true) - $tablestarttime) . " seconds\n";
-  }
-
-  /**
-   * Sync all the configured tables (both timemodified and history).
-   * This should be called from a scheduled or adhoc task.
-   */
-  public static function sync_tables()
-  {
-    raise_memory_limit(MEMORY_HUGE);
-    mtrace("sync_tables started");
-
-    $destdb = util::get_destination_db();
-
-    // Get tables in destination
-    $actualdesttables = $destdb->get_tables();
-
-    // Sync timemodified tables
-    $timemodifiedtables = explode(',', 'grade_items,grade_grades');
-    $syncdeletions = get_config('local_tablesync', 'syncdeletions') === 'yes';
-    foreach ($timemodifiedtables as $sourcetable) {
-      self::sync_table($destdb, $sourcetable, $actualdesttables, "timemodified", $syncdeletions);
-    }
-
-    // Sync history tables
-    $historytables = explode(',', 'grade_grades_history,grade_items_history');
-    foreach ($historytables as $sourcetable) {
-      self::sync_table($destdb, $sourcetable, $actualdesttables, "history");
-    }
-
-    $destdb->dispose();
-
-    mtrace("sync_tables finished");
-  }
 }

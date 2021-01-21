@@ -24,11 +24,11 @@
  */
 
 $functions = array(
-  'local_tablesync_start_sync' => array(
-    'classname' => 'local_tablesync_external',
-    'methodname' => 'start_sync',
-    'classpath' => 'local/tablesync/externallib.php',
-    'description' => 'Starts an on-demand table sync task.',
-    'type' => 'read',
-  )
+    'local_tablesync_start_sync' => array(
+        'classname' => 'local_tablesync_external',
+        'methodname' => 'start_sync',
+        'classpath' => 'local/tablesync/externallib.php',
+        'description' => 'Starts an on-demand table sync task.',
+        'type' => 'read',
+    )
 );

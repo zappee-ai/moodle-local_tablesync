@@ -28,39 +28,25 @@ namespace local_tablesync\privacy;
 defined('MOODLE_INTERNAL') || die();
 
 use context;
+use core_privacy\local\request\approved_contextlist;
+use core_privacy\local\request\approved_userlist;
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\contextlist;
-
-if (interface_exists('\core_privacy\local\request\core_userlist_provider')) {
-    interface my_userlist_provider extends \core_privacy\local\request\core_userlist_provider
-    {
-    }
-} else {
-    interface my_userlist_provider
-    {
-    };
-}
+use core_privacy\local\request\userlist;
+use core_privacy\local\request\writer;
+use local_tablesync\util;
 
 class provider implements
     \core_privacy\local\metadata\provider,
-    // TODO
-    // \tool_log\local\privacy\logstore_provider,
-    // \tool_log\local\privacy\logstore_userlist_provider
     \core_privacy\local\request\plugin\provider,
-    my_userlist_provider
-{
-
-    // TODO
-    // use \tool_log\local\privacy\moodle_database_export_and_delete;
-
+    \core_privacy\local\request\core_userlist_provider {
     /**
      * Returns metadata.
      *
      * @param collection $collection The initialised collection to add items to.
      * @return collection A listing of user data stored through this system.
      */
-    public static function get_metadata(collection $collection): collection
-    {
+    public static function get_metadata(collection $collection): collection {
         $collection->add_external_location_link('synced_grade_grades', [
             'id' => 'privacy:metadata:grade_grades:id',
             'itemid' => 'privacy:metadata:grade_grades:itemid',
@@ -123,26 +109,36 @@ class provider implements
      * @param int $userid The user to find the contexts for.
      * @return contextlist $contextlist
      */
-    public static function get_contexts_for_userid(int $userid)
-    {
-        // TODO fetch distinct context IDs from all synced tables
-        $contextlist = new contextlist();
-        list($db, $table) = static::get_database_and_table();
-        if (!$db || !$table) {
-            return;
+    public static function get_contexts_for_userid(int $userid): contextlist {
+        global $DB;
+
+        $destdb = util::get_destination_db();
+
+        // Find grade items for which the user has grade grades (or history)
+        $allitemids = [];
+        $tables = static::get_all_table_names();
+        foreach ($tables as $sourcetable) {
+            $desttable = util::get_destination_table_name($sourcetable);
+            $params = ['userid' => $userid];
+            $itemids = $destdb->get_fieldset_select($desttable, 'DISTINCT itemid', "userid = :userid", $params);
+            if (!empty($itemids)) {
+                $allitemids = array_unique(array_merge($allitemids, $itemids));
+            }
         }
 
-        $sql = 'userid = :userid1 OR relateduserid = :userid2 OR realuserid = :userid3';
-        $params = ['userid1' => $userid, 'userid2' => $userid, 'userid3' => $userid];
-        $contextids = $db->get_fieldset_select($table, 'DISTINCT contextid', $sql, $params);
-        if (empty($contextids)) {
-            return;
-        }
+        // Find courses for those grade items
+        list($insql, $inparams) = $DB->get_in_or_equal($allitemids, SQL_PARAMS_NAMED);
+        $courseids = $DB->get_fieldset_select("grade_items", "courseid", "id $insql", $inparams);
 
-        $sql = implode(' UNION ', array_map(function ($id) use ($db) {
-            return 'SELECT ' . $id . $db->sql_null_from_clause();
-        }, $contextids));
-        $contextlist->add_from_sql($sql, []);
+        // Find contexts from courses
+        list($insql, $inparams) = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED);
+        $sql = "SELECT c.id FROM {context} c
+                WHERE ( c.contextlevel = :contextlevel and c.instanceid $insql )";
+        $params = array_merge($inparams, ['contextlevel' => CONTEXT_COURSE]);
+
+        $contextlist = new \core_privacy\local\request\contextlist();
+        $contextlist->add_from_sql($sql, $params);
+        return $contextlist;
     }
 
     /**
@@ -150,36 +146,25 @@ class provider implements
      *
      * @param   userlist    $userlist   The userlist containing the list of users who have data in this context/plugin combination.
      */
-    public static function get_users_in_context(userlist $userlist)
-    {
-        // TODO fetch distinct user IDs from all synced tables
-        list($db, $table) = static::get_database_and_table();
-        if (!$db || !$table) {
-            return;
-        }
+    public static function get_users_in_context(userlist $userlist) {
+        global $DB;
+        if ($context->contextlevel == CONTEXT_COURSE) {
+            // Get grade items for this course
+            $params = ['courseid' => $context->instanceid];
+            $itemids = $DB->get_fieldset_select("grade_items", "id", "courseid = :courseid", $params);
+            list($insql, $inparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_NAMED);
 
-        $userids = [];
-        $records = $db->get_records(
-            $table,
-            ['contextid' => $userlist->get_context()->id],
-            '',
-            'id, userid, relateduserid, realuserid'
-        );
-        if (empty($records)) {
-            return;
-        }
-
-        foreach ($records as $record) {
-            $userids[] = $record->userid;
-            if (!empty($record->relateduserid)) {
-                $userids[] = $record->relateduserid;
-            }
-            if (!empty($record->realuserid)) {
-                $userids[] = $record->realuserid;
+            $destdb = util::get_destination_db();
+            // Get users that have grade grades (or history) related to those items
+            $tables = static::get_all_table_names();
+            foreach ($tables as $sourcetable) {
+                $desttable = util::get_destination_table_name($sourcetable);
+                $userids = $destdb->get_fieldset_select($desttable, 'DISTINCT userid', "itemid $insql", $inparams);
+                if (!empty($userids)) {
+                    $userlist->add_users($userids);
+                }
             }
         }
-        $userids = array_unique($userids);
-        $userlist->add_users($userids);
     }
 
     /**
@@ -187,45 +172,45 @@ class provider implements
      *
      * @param   approved_contextlist    $contextlist    The approved contexts to export information for.
      */
-    public static function export_user_data(approved_contextlist $contextlist)
-    {
-        // TODO
-        list($db, $table) = static::get_database_and_table();
-        if (!$db || !$table) {
-            return;
-        }
-
+    public static function export_user_data(approved_contextlist $contextlist) {
+        global $DB;
+        $destdb = util::get_destination_db();
+        // list($contextinsql, $contextinparams) = $destdb->get_in_or_equal($contextlist->get_contextids(), SQL_PARAMS_NAMED);
         $userid = $contextlist->get_user()->id;
-        list($insql, $inparams) = $db->get_in_or_equal($contextlist->get_contextids(), SQL_PARAMS_NAMED);
 
-        $sql = "(userid = :userid1 OR relateduserid = :userid2 OR realuserid = :userid3) AND contextid $insql";
-        $params = array_merge($inparams, [
-            'userid1' => $userid,
-            'userid2' => $userid,
-            'userid3' => $userid,
-        ]);
-
-        $path = static::get_export_subcontext();
-        $flush = function($lastcontextid, $data) use ($path) {
+        $path = get_string('privacy:path:tablesync', 'local_tablesync');
+        $flush = function ($lastcontextid, $tablename, $data) use ($path) {
             $context = context::instance_by_id($lastcontextid);
-            writer::with_context($context)->export_data($path, (object) ['logs' => $data]);
+            writer::with_context($context)->export_data([$path, $tablename], (object) ['sync' => $data]);
         };
 
-        $lastcontextid = null;
-        $data = [];
-        $recordset = $db->get_recordset_select($table, $sql, $params, 'contextid, timecreated, id');
-        foreach ($recordset as $record) {
-            if ($lastcontextid && $lastcontextid != $record->contextid) {
-                $flush($lastcontextid, $data);
-                $data = [];
+        $tables = static::get_all_table_names();
+        $contexts = $contextlist->get_contexts();
+
+        foreach ($contexts as $context) {
+            if ($context->contextlevel == CONTEXT_COURSE) {
+                // Get grade item IDs for course
+                $params = ['courseid' => $context->instanceid];
+                $itemids = $DB->get_fieldset_select("grade_items", "id", "courseid = :courseid", $params);
+
+                // Get all rows from grade_grades (and history) where userid and itemid match
+                list($insql, $inparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_QM);
+                $params = array_merge([$userid], $inparams);
+                foreach ($tables as $sourcetable) {
+                    $desttable = util::get_destination_table_name($sourcetable);
+                    // Export those
+                    $recordset = $destdb->get_recordset_sql("SELECT * FROM " . $desttable . " where userid = ? and itemid $insql", $params);
+                    $data = [];
+                    foreach ($recordset as $record) {
+                        $data[] = $record;
+                    }
+                    if (!empty($data)) {
+                        $flush($context->id, $sourcetable, $data);
+                    }
+                    $recordset->close();
+                }
             }
-            $data[] = helper::transform_standard_log_record_for_userid($record, $userid);
-            $lastcontextid = $record->contextid;
         }
-        if ($lastcontextid) {
-            $flush($lastcontextid, $data);
-        }
-        $recordset->close();
     }
 
     /**
@@ -233,14 +218,23 @@ class provider implements
      *
      * @param   context                 $context   The specific context to delete data for.
      */
-    public static function delete_data_for_all_users_in_context(\context $context)
-    {
-        // TODO
-        list($db, $table) = static::get_database_and_table();
-        if (!$db || !$table) {
-            return;
+    public static function delete_data_for_all_users_in_context(\context $context) {
+        global $DB;
+        if ($context->contextlevel == CONTEXT_COURSE) {
+            // Get grade items for this course
+            $params = ['courseid' => $context->instanceid];
+            $itemids = $DB->get_fieldset_select("grade_items", "id", "courseid = :courseid", $params);
+            list($insql, $inparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_NAMED);
+
+            $destdb = util::get_destination_db();
+
+            // Delete synced grade grades (and history) related to those items 
+            $tables = static::get_all_table_names();
+            foreach ($tables as $sourcetable) {
+                $desttable = util::get_destination_table_name($sourcetable);
+                $destdb->delete_records_select($desttable, "itemid $insql", $inparams);
+            }
         }
-        $db->delete_records($table, ['contextid' => $context->id]);
     }
 
     /**
@@ -248,34 +242,74 @@ class provider implements
      *
      * @param   approved_contextlist    $contextlist    The approved contexts and user information to delete information for.
      */
-    public static function delete_data_for_user(approved_contextlist $contextlist)
-    {
-        // TODO
-        list($db, $table) = static::get_database_and_table();
-        if (!$db || !$table) {
-            return;
+    public static function delete_data_for_user(approved_contextlist $contextlist) {
+        global $DB;
+        $destdb = util::get_destination_db();
+
+        $tables = static::get_all_table_names();
+        $contexts = $contextlist->get_contexts();
+
+        foreach ($contexts as $context) {
+            if ($context->contextlevel == CONTEXT_COURSE) {
+                // Get grade item IDs for course
+                $params = ['courseid' => $context->instanceid];
+                $itemids = $DB->get_fieldset_select("grade_items", "id", "courseid = :courseid", $params);
+
+                // Get all rows from grade_grades (and history) where userid and itemid match
+                list($insql, $inparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_QM);
+                $params = array_merge([$contextlist->get_user()->id], $inparams);
+                foreach ($tables as $sourcetable) {
+                    $desttable = util::get_destination_table_name($sourcetable);
+                    // Delete those
+                    $destdb->delete_records_select($desttable, "userid = ? and itemid $insql", $params);
+                }
+            }
         }
-        list($insql, $inparams) = $db->get_in_or_equal($contextlist->get_contextids(), SQL_PARAMS_NAMED);
-        $params = array_merge($inparams, ['userid' => $contextlist->get_user()->id]);
-        $db->delete_records_select($table, "userid = :userid AND contextid $insql", $params);
     }
 
-
     /**
-     * Delete multiple users within a single context.
+     * Delete multiple users’ data within a single context.
      *
      * @param   approved_userlist       $userlist The approved context and user information to delete information for.
      */
-    public static function delete_data_for_users(approved_userlist $userlist)
-    {
-        // TODO delete user data in all tables
-        list($db, $table) = static::get_database_and_table();
-        if (!$db || !$table) {
-            return;
+    public static function delete_data_for_users(approved_userlist $userlist) {
+        global $DB;
+        $destdb = util::get_destination_db();
+
+        $tables = static::get_all_table_names();
+        foreach ($tables as $sourcetable) {
+            $desttable = util::get_destination_table_name($sourcetable);
+            list($insql, $inparams) = $destdb->get_in_or_equal($userlist->get_userids(), SQL_PARAMS_NAMED);
+            // TODO figure out how to deal with specific contexts in these particular tables
+            $destdb->delete_records_select($desttable, "userid $insql", $inparams);
         }
-        list($insql, $inparams) = $db->get_in_or_equal($userlist->get_userids(), SQL_PARAMS_NAMED);
-        $params = array_merge($inparams, ['contextid' => $userlist->get_context()->id]);
-        $db->delete_records_select($table, "contextid = :contextid AND userid $insql", $params);
+
+        $tables = static::get_all_table_names();
+        $context = $userlist->get_context();
+
+        if ($context->contextlevel == CONTEXT_COURSE) {
+            // Get grade item IDs for course
+            $params = ['courseid' => $context->instanceid];
+            $itemids = $DB->get_fieldset_select("grade_items", "id", "courseid = :courseid", $params);
+
+            // Get all rows from grade_grades (and history) where userid and itemid match
+            list($iteminsql, $iteminparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_QM);
+            list($userinsql, $userinparams) = $destdb->get_in_or_equal($userlist->get_userids(), SQL_PARAMS_QM);
+            $params = array_merge($iteminparams, $userinparams);
+            foreach ($tables as $sourcetable) {
+                $desttable = util::get_destination_table_name($sourcetable);
+                // Delete those
+                $destdb->delete_records_select($desttable, "itemid $iteminsql and userid $userinsql", $params);
+            }
+        }
     }
 
+    /**
+     * Returns the names of all (history and timemodified) tables that are synced.
+     * Currently only grade_grades and grade_grades_history contain personal data and are synced
+     * @return string[]
+     */
+    private static function get_all_table_names() {
+        return ['grade_grades', 'grade_grades_history'];
+    }
 }

@@ -29,15 +29,12 @@ use local_tablesync\sync;
 
 defined('MOODLE_INTERNAL') || die();
 
-class sync_tables extends \core\task\scheduled_task
-{
-  public function get_name()
-  {
-    return 'Sync Tables';
-  }
+class sync_tables extends \core\task\scheduled_task {
+    public function get_name() {
+        return 'Sync Tables';
+    }
 
-  public function execute()
-  {
-    sync::sync_tables();
-  }
+    public function execute() {
+        sync::sync_tables();
+    }
 }

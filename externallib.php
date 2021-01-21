@@ -27,47 +27,43 @@ require_once("$CFG->libdir/externallib.php");
 
 use local_tablesync\task\sync_tables_adhoc;
 
-class local_tablesync_external extends external_api
-{
+class local_tablesync_external extends external_api {
 
-  /**
-   * Returns description of method parameters
-   * @return external_function_parameters
-   */
-  public static function start_sync_parameters()
-  {
-    // No input parameters for this function
-    return new external_function_parameters(array());
-  }
+    /**
+     * Returns description of method parameters
+     * @return external_function_parameters
+     */
+    public static function start_sync_parameters() {
+        // No input parameters for this function
+        return new external_function_parameters(array());
+    }
 
-  /**
-   * Returns description of method result value
-   * @return external_description
-   */
-  public static function start_sync_returns()
-  {
-    return
-      new external_single_structure(
-        array(
-          'message' => new external_value(PARAM_TEXT, 'Message describing result')
-        )
-      );
-  }
+    /**
+     * Returns description of method result value
+     * @return external_description
+     */
+    public static function start_sync_returns() {
+        return
+            new external_single_structure(
+                array(
+                    'message' => new external_value(PARAM_TEXT, 'Message describing result')
+                )
+            );
+    }
 
-  /**
-   * Kicks off an adhoc task to sync tables.
-   * @return string message
-   */
-  public static function start_sync()
-  {
-    self::validate_parameters(self::start_sync_parameters(), array());
+    /**
+     * Kicks off an adhoc task to sync tables.
+     * @return string message
+     */
+    public static function start_sync() {
+        self::validate_parameters(self::start_sync_parameters(), array());
 
-    $context = get_context_instance(CONTEXT_SYSTEM);
-    self::validate_context($context);
+        $context = get_context_instance(CONTEXT_SYSTEM);
+        self::validate_context($context);
 
-    $task = new sync_tables_adhoc();
-    \core\task\manager::queue_adhoc_task($task);
+        $task = new sync_tables_adhoc();
+        \core\task\manager::queue_adhoc_task($task);
 
-    return array('message' => 'Enqueued adhoc table sync task');
-  }
+        return array('message' => 'Enqueued adhoc table sync task');
+    }
 }

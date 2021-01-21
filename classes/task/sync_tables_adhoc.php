@@ -29,10 +29,8 @@ use local_tablesync\sync;
 
 defined('MOODLE_INTERNAL') || die();
 
-class sync_tables_adhoc extends \core\task\adhoc_task
-{
-  public function execute()
-  {
-    sync::sync_tables();
-  }
+class sync_tables_adhoc extends \core\task\adhoc_task {
+    public function execute() {
+        sync::sync_tables();
+    }
 }
