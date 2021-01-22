@@ -112,7 +112,12 @@ class provider implements
     public static function get_contexts_for_userid(int $userid): contextlist {
         global $DB;
 
+        $contextlist = new \core_privacy\local\request\contextlist();
         $destdb = util::get_destination_db();
+
+        if (!$destdb) {
+            return $contextlist;
+        }
 
         // Find grade items for which the user has grade grades (or history)
         $allitemids = [];
@@ -136,7 +141,6 @@ class provider implements
                 WHERE ( c.contextlevel = :contextlevel and c.instanceid $insql )";
         $params = array_merge($inparams, ['contextlevel' => CONTEXT_COURSE]);
 
-        $contextlist = new \core_privacy\local\request\contextlist();
         $contextlist->add_from_sql($sql, $params);
         return $contextlist;
     }
@@ -175,7 +179,6 @@ class provider implements
     public static function export_user_data(approved_contextlist $contextlist) {
         global $DB;
         $destdb = util::get_destination_db();
-        // list($contextinsql, $contextinparams) = $destdb->get_in_or_equal($contextlist->get_contextids(), SQL_PARAMS_NAMED);
         $userid = $contextlist->get_user()->id;
 
         $path = get_string('privacy:path:tablesync', 'local_tablesync');

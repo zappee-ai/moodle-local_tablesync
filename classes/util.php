@@ -80,6 +80,10 @@ class util {
     public static function get_destination_db() {
         $dbdriver = get_config('local_tablesync', 'dbdriver');
 
+        if (empty($dbdriver)) {
+            return false;
+        }
+
         // Handle custom driver construction separately
         if ($dbdriver === "tablesync/mysqli") {
             $db = new \local_tablesync\mysqli_tablesync_moodle_database(true);
