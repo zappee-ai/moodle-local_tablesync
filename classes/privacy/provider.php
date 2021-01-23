@@ -152,13 +152,18 @@ class provider implements
      */
     public static function get_users_in_context(userlist $userlist) {
         global $DB;
+        $context = $userlist->get_context();
         if ($context->contextlevel == CONTEXT_COURSE) {
             // Get grade items for this course
             $params = ['courseid' => $context->instanceid];
             $itemids = $DB->get_fieldset_select("grade_items", "id", "courseid = :courseid", $params);
-            list($insql, $inparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_NAMED);
 
             $destdb = util::get_destination_db();
+            if (!$destdb) {
+                return;
+            }
+            list($insql, $inparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_NAMED);
+
             // Get users that have grade grades (or history) related to those items
             $tables = static::get_all_table_names();
             foreach ($tables as $sourcetable) {
@@ -179,6 +184,9 @@ class provider implements
     public static function export_user_data(approved_contextlist $contextlist) {
         global $DB;
         $destdb = util::get_destination_db();
+        if (!$destdb) {
+            return;
+        }
         $userid = $contextlist->get_user()->id;
 
         $path = get_string('privacy:path:tablesync', 'local_tablesync');
@@ -227,9 +235,12 @@ class provider implements
             // Get grade items for this course
             $params = ['courseid' => $context->instanceid];
             $itemids = $DB->get_fieldset_select("grade_items", "id", "courseid = :courseid", $params);
-            list($insql, $inparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_NAMED);
 
             $destdb = util::get_destination_db();
+            if (!$destdb) {
+                return;
+            }
+            list($insql, $inparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_NAMED);
 
             // Delete synced grade grades (and history) related to those items 
             $tables = static::get_all_table_names();
@@ -248,6 +259,9 @@ class provider implements
     public static function delete_data_for_user(approved_contextlist $contextlist) {
         global $DB;
         $destdb = util::get_destination_db();
+        if (!$destdb) {
+            return;
+        }
 
         $tables = static::get_all_table_names();
         $contexts = $contextlist->get_contexts();
@@ -278,6 +292,9 @@ class provider implements
     public static function delete_data_for_users(approved_userlist $userlist) {
         global $DB;
         $destdb = util::get_destination_db();
+        if (!$destdb) {
+            return;
+        }
 
         $tables = static::get_all_table_names();
         foreach ($tables as $sourcetable) {
