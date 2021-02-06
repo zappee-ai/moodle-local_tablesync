@@ -139,7 +139,7 @@ class sync {
 
         $destdb = util::get_destination_db();
         if (!destdb) {
-            mtrace("destination database not configured; exiting.");
+            mtrace("destination database not properly configured; exiting.");
             return;
         }
 
