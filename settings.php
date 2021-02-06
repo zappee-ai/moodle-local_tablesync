@@ -54,6 +54,13 @@ if ($hassiteconfig) {
             'Destination Database Connection',
             $link
         ));
+        $settings->add(new admin_setting_configselect(
+            'local_tablesync/enabled',
+            'Enable Table Sync',
+            '',
+            'no',
+            ['yes' => 'Yes', 'no' => 'No']
+        ));
         $drivers = \local_tablesync\util::get_drivers();
         $settings->add(new admin_setting_configselect(
             'local_tablesync/dbdriver',

@@ -128,10 +128,20 @@ class sync {
      * This should be called from a scheduled or adhoc task.
      */
     public static function sync_tables() {
+        $enabled = get_config('local_tablesync', 'enabled') === 'yes';
+        if (!$enabled) {
+            mtrace("tablesync not enabled; skipping.");
+            return;
+        }
+
         raise_memory_limit(MEMORY_HUGE);
         mtrace("sync_tables started");
 
         $destdb = util::get_destination_db();
+        if (!destdb) {
+            mtrace("destination database not configured; exiting.");
+            return;
+        }
 
         // Get tables in destination
         $actualdesttables = $destdb->get_tables();

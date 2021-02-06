@@ -80,7 +80,7 @@ class util {
     public static function get_destination_db() {
         $dbdriver = get_config('local_tablesync', 'dbdriver');
 
-        if (empty($dbdriver)) {
+        if (empty($dbdriver) || empty(get_config('local_tablesync', 'dbhost'))) {
             return false;
         }
 

@@ -51,7 +51,17 @@ error_reporting($CFG->debug);
 
 // Get database connection (will die here if connection fails)
 $db = util::get_destination_db();
+if (!$db) {
+    echo $OUTPUT->notification('Connection not correctly configured.', 'notifyproblem');
+    die();
+}
 echo $OUTPUT->notification('Connection made.', 'notifysuccess');
+
+
+$enabled = get_config('local_tablesync', 'enabled') === 'yes';
+if (!$enabled) {
+    echo $OUTPUT->notification('Table Sync is not enabled; no data will sync until it is enabled.', 'notifywarning');
+}
 
 // List all tables in database
 $tables = $db->get_tables();
