@@ -138,7 +138,7 @@ class sync {
         mtrace("sync_tables started");
 
         $destdb = util::get_destination_db();
-        if (!destdb) {
+        if (!$destdb) {
             mtrace("destination database not properly configured; exiting.");
             return;
         }

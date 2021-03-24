@@ -50,7 +50,7 @@ class util {
      */
     public static function get_history_table_names() {
         // Once plugin is configurable, update this
-        return explode(',', 'grade_grades_history,grade_items_history');
+        return explode(',', 'grade_grades_history,grade_items_history,grade_categories_history,logstore_standard_log');
     }
 
     /**
@@ -59,7 +59,7 @@ class util {
      */
     public static function get_timemodified_table_names() {
         // Once plugin is configurable, update this
-        return explode(',', 'grade_items,grade_grades');
+        return explode(',', 'grade_items,grade_grades,grade_categories');
     }
 
     /**

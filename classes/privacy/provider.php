@@ -100,6 +100,29 @@ class provider implements
             'informationformat' => 'privacy:metadata:grade_grades_history:informationformat',
         ], 'privacy:metadata:grade_grades_history');
 
+        $collection->add_external_location_link('synced_logstore_standard_log', [
+            'id' => 'privacy:metadata:logstore_standard_log:id',
+            'eventname' => 'privacy:metadata:logstore_standard_log:eventname',
+            'component' => 'privacy:metadata:logstore_standard_log:component',
+            'action' => 'privacy:metadata:logstore_standard_log:action',
+            'target' => 'privacy:metadata:logstore_standard_log:target',
+            'objecttable' => 'privacy:metadata:logstore_standard_log:objecttable',
+            'objectid' => 'privacy:metadata:logstore_standard_log:objectid',
+            'crud' => 'privacy:metadata:logstore_standard_log:crud',
+            'edulevel' => 'privacy:metadata:logstore_standard_log:edulevel',
+            'contextid' => 'privacy:metadata:logstore_standard_log:contextid',
+            'contextlevel' => 'privacy:metadata:logstore_standard_log:contextlevel',
+            'contextinstanceid' => 'privacy:metadata:logstore_standard_log:contextinstanceid',
+            'userid' => 'privacy:metadata:logstore_standard_log:userid',
+            'courseid' => 'privacy:metadata:logstore_standard_log:courseid',
+            'relateduserid' => 'privacy:metadata:logstore_standard_log:relateduserid',
+            'anonymous' => 'privacy:metadata:logstore_standard_log:anonymous',
+            'other' => 'privacy:metadata:logstore_standard_log:other',
+            'timecreated' => 'privacy:metadata:logstore_standard_log:timecreated',
+            'origin' => 'privacy:metadata:logstore_standard_log:origin',
+            'ip' => 'privacy:metadata:logstore_standard_log:ip',
+            'realuser' => 'privacy:metadata:logstore_standard_log:realuser',
+        ], 'privacy:metadata:logstore_standard_log');
         return $collection;
     }
 
@@ -121,7 +144,7 @@ class provider implements
 
         // Find grade items for which the user has grade grades (or history)
         $allitemids = [];
-        $tables = static::get_all_table_names();
+        $tables = ['grade_grades', 'grade_grades_history'];
         foreach ($tables as $sourcetable) {
             $desttable = util::get_destination_table_name($sourcetable);
             $params = ['userid' => $userid];
@@ -134,6 +157,14 @@ class provider implements
         // Find courses for those grade items
         list($insql, $inparams) = $DB->get_in_or_equal($allitemids, SQL_PARAMS_NAMED);
         $courseids = $DB->get_fieldset_select("grade_items", "courseid", "id $insql", $inparams);
+
+        // Add any courses for which the user has logstore entries
+        $desttable = util::get_destination_table_name("logstore_standard_log");
+        $params = ['userid' => $userid];
+        $logcourseids = $destdb->get_fieldset_select($desttable, 'DISTINCT courseid', "userid = :userid", $params);
+        if (!empty($logcourseids)) {
+            $courseids = array_unique(array_merge($courseids, $logcourseids));
+        }
 
         // Find contexts from courses
         list($insql, $inparams) = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED);
@@ -153,19 +184,29 @@ class provider implements
     public static function get_users_in_context(userlist $userlist) {
         global $DB;
         $context = $userlist->get_context();
+        $destdb = util::get_destination_db();
+        if (!$destdb) {
+            return;
+        }
+
+        // Get users that have logstore entries for this context
+        $params = ['contextid' => $context->id];
+        $desttable = util::get_destination_table_name('logstore_standard_log');
+        $userids = $destdb->get_fieldset_select($desttable, 'DISTINCT userid', "contextid = :contextid", $params);
+        if (!empty($userids)) {
+            $userlist->add_users($userids);
+        }
+
+        // If this is a course, also get grade grades and history
         if ($context->contextlevel == CONTEXT_COURSE) {
             // Get grade items for this course
             $params = ['courseid' => $context->instanceid];
             $itemids = $DB->get_fieldset_select("grade_items", "id", "courseid = :courseid", $params);
 
-            $destdb = util::get_destination_db();
-            if (!$destdb) {
-                return;
-            }
             list($insql, $inparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_NAMED);
 
             // Get users that have grade grades (or history) related to those items
-            $tables = static::get_all_table_names();
+            $tables = ['grade_grades', 'grade_grades_history'];
             foreach ($tables as $sourcetable) {
                 $desttable = util::get_destination_table_name($sourcetable);
                 $userids = $destdb->get_fieldset_select($desttable, 'DISTINCT userid', "itemid $insql", $inparams);
@@ -195,10 +236,24 @@ class provider implements
             writer::with_context($context)->export_data([$path, $tablename], (object) ['sync' => $data]);
         };
 
-        $tables = static::get_all_table_names();
+        $tables = ['grade_grades', 'grade_grades_history'];
         $contexts = $contextlist->get_contexts();
 
         foreach ($contexts as $context) {
+
+            // Export all logstore items for this context and user
+            $desttable = util::get_destination_table_name('logstore_standard_log');
+            $recordset = $destdb->get_recordset_sql("SELECT * FROM " . $desttable . " where userid = ? and contextid = ?", [$userid, $context->id]);
+            $data = [];
+            foreach ($recordset as $record) {
+                $data[] = $record;
+            }
+            if (!empty($data)) {
+                $flush($context->id, $sourcetable, $data);
+            }
+            $recordset->close();
+
+            // If this is a course, also get grade grades and history
             if ($context->contextlevel == CONTEXT_COURSE) {
                 // Get grade item IDs for course
                 $params = ['courseid' => $context->instanceid];
@@ -231,19 +286,25 @@ class provider implements
      */
     public static function delete_data_for_all_users_in_context(\context $context) {
         global $DB;
+        $destdb = util::get_destination_db();
+        if (!$destdb) {
+            return;
+        }
+
+        // Delete all logstore items for this context
+        $desttable = util::get_destination_table_name('logstore_standard_log');
+        $destdb->delete_records_select($desttable, "contextid = ?", [$context->id]);
+
+        // If this is a course, also delete grade grades and history
         if ($context->contextlevel == CONTEXT_COURSE) {
             // Get grade items for this course
             $params = ['courseid' => $context->instanceid];
             $itemids = $DB->get_fieldset_select("grade_items", "id", "courseid = :courseid", $params);
 
-            $destdb = util::get_destination_db();
-            if (!$destdb) {
-                return;
-            }
             list($insql, $inparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_NAMED);
 
             // Delete synced grade grades (and history) related to those items 
-            $tables = static::get_all_table_names();
+            $tables = static::get_grade_table_names();
             foreach ($tables as $sourcetable) {
                 $desttable = util::get_destination_table_name($sourcetable);
                 $destdb->delete_records_select($desttable, "itemid $insql", $inparams);
@@ -263,10 +324,15 @@ class provider implements
             return;
         }
 
-        $tables = static::get_all_table_names();
+        $tables = static::get_grade_table_names();
         $contexts = $contextlist->get_contexts();
 
         foreach ($contexts as $context) {
+            // Delete all logstore items for this user in this context
+            $desttable = util::get_destination_table_name('logstore_standard_log');
+            $destdb->delete_records_select($desttable, "contextid = ? and userid = ?", [$context->id, $contextlist->get_user()->id]);
+
+            // If this is a course, also delete grade grades and history
             if ($context->contextlevel == CONTEXT_COURSE) {
                 // Get grade item IDs for course
                 $params = ['courseid' => $context->instanceid];
@@ -304,7 +370,7 @@ class provider implements
             $destdb->delete_records_select($desttable, "userid $insql", $inparams);
         }
 
-        $tables = static::get_all_table_names();
+        $tables = static::get_grade_table_names();
         $context = $userlist->get_context();
 
         if ($context->contextlevel == CONTEXT_COURSE) {
@@ -325,11 +391,21 @@ class provider implements
     }
 
     /**
-     * Returns the names of all (history and timemodified) tables that are synced.
+     * Returns the names of grade (history and timemodified) tables that are synced.
      * Currently only grade_grades and grade_grades_history contain personal data and are synced
+     * (logstore_standard_log also contains personal data, but has a different enough structure 
+     * that it is currently handled separately)
+     * @return string[]
+     */
+    private static function get_grade_table_names() {
+        return ['grade_grades', 'grade_grades_history'];
+    }
+
+    /**
+     * Returns the names of all (history and timemodified) tables that are synced.
      * @return string[]
      */
     private static function get_all_table_names() {
-        return ['grade_grades', 'grade_grades_history'];
+        return ['grade_grades', 'grade_grades_history', 'logstore_standard_log'];
     }
 }

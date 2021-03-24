@@ -110,7 +110,7 @@ if ($hassiteconfig) {
         $settings->add(new admin_setting_heading(
             'tables',
             'Tables to Sync',
-            'Destination tables must have identical structure to source tables. Timemodified tables to sync: grade_items,grade_grades. History tables to sync: grade_grades_history, grade_items_history'
+            'Destination tables must have identical structure to source tables. Timemodified tables to sync: grade_items, grade_grades, grade_categories. History tables to sync: grade_grades_history, grade_items_history, grade_categories_history, logstore_standard_log'
         ));
         $settings->add(new admin_setting_configselect(
             'local_tablesync/syncdeletions',

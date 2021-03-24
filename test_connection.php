@@ -73,9 +73,7 @@ if (empty($tables)) {
 }
 
 // Check for each table needed
-$timemodifiedtables = explode(',', get_config('local_tablesync', 'timemodifiedtables'));
-$historytables = explode(',', get_config('local_tablesync', 'historytables'));
-$sourcetables = array_merge($timemodifiedtables, $historytables);
+$sourcetables = array_merge(util::get_timemodified_table_names(), util::get_history_table_names());
 
 foreach ($sourcetables as $sourcetable) {
     $destname = util::get_destination_table_name($sourcetable);
