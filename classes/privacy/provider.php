@@ -249,7 +249,7 @@ class provider implements
                 $data[] = $record;
             }
             if (!empty($data)) {
-                $flush($context->id, $sourcetable, $data);
+                $flush($context->id, 'logstore_standard_log', $data);
             }
             $recordset->close();
 
@@ -258,6 +258,9 @@ class provider implements
                 // Get grade item IDs for course
                 $params = ['courseid' => $context->instanceid];
                 $itemids = $DB->get_fieldset_select("grade_items", "id", "courseid = :courseid", $params);
+                if (empty($itemids)) {
+                    continue;
+                }
 
                 // Get all rows from grade_grades (and history) where userid and itemid match
                 list($insql, $inparams) = $destdb->get_in_or_equal($itemids, SQL_PARAMS_QM);
